@@ -3,7 +3,9 @@ package com.example.jwt.controller;
 import com.example.jwt.entity.ERole;
 import com.example.jwt.entity.Role;
 import com.example.jwt.entity.User;
+import com.example.jwt.payload.request.LoginRequest;
 import com.example.jwt.payload.request.SignupRequest;
+import com.example.jwt.payload.response.JwtResponse;
 import com.example.jwt.payload.response.MessageResponse;
 import com.example.jwt.repository.RoleRepository;
 import com.example.jwt.repository.UserRepository;
@@ -16,8 +18,8 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.web.client.TestRestTemplate;
 import org.springframework.boot.web.server.LocalServerPort;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.context.junit.jupiter.SpringExtension;
-import org.springframework.transaction.annotation.Transactional;
 
 import java.util.HashSet;
 import java.util.Set;
@@ -38,17 +40,32 @@ public class AuthControllerTest {
     private RoleRepository roleRepository;
 
     @Autowired
+    private PasswordEncoder encoder;
+
+    @Autowired
     private TestRestTemplate restTemplate;
 
     @BeforeEach
     public void setUp() {
-        User user = new User("test", "test@test.com", "123456", null);
+        Role roleAdmin = new Role(ERole.ROLE_ADMIN);
+        Role roleMod = new Role(ERole.ROLE_MODERATOR);
+        Role roleUser = new Role(ERole.ROLE_USER);
+
+        roleRepository.save(roleAdmin);
+        roleRepository.save(roleMod);
+        roleRepository.save(roleUser);
+
+        Set<Role> roles = new HashSet<>();
+        roles.add(roleUser);
+
+        User user = new User("test", "test@test.com", encoder.encode("123456"), roles);
         userRepository.save(user);
     }
 
     @AfterEach
     public void clear() {
         userRepository.deleteAll();
+        roleRepository.deleteAll();
     }
 
     @Test
@@ -96,5 +113,23 @@ public class AuthControllerTest {
 
         String msg = responseEntity.getBody().getMessage();
         assertThat(msg).isEqualTo("User registered successfully!");
+    }
+
+    @Test
+    public void 로그인시_토큰_발급() {
+        LoginRequest request = new LoginRequest("test", "123456");
+        String url = "http://localhost:" + port + "/api/auth/signin";
+
+        ResponseEntity<JwtResponse> responseEntity = restTemplate.postForEntity(url, request, JwtResponse.class);
+
+        String username = responseEntity.getBody().getUsername();
+        String email = responseEntity.getBody().getEmail();
+        String role = responseEntity.getBody().getRoles().get(0);
+        String token = responseEntity.getBody().getToken();
+
+        assertThat(username).isEqualTo("test");
+        assertThat(email).isEqualTo("test@test.com");
+        assertThat(role).isEqualTo("ROLE_USER");
+        assertThat(token).isNotNull();
     }
 }
