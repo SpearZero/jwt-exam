@@ -125,7 +125,7 @@ public class AuthControllerTest {
         String username = responseEntity.getBody().getUsername();
         String email = responseEntity.getBody().getEmail();
         String role = responseEntity.getBody().getRoles().get(0);
-        String token = responseEntity.getBody().getToken();
+        String token = responseEntity.getBody().getAccessToken();
 
         assertThat(username).isEqualTo("test");
         assertThat(email).isEqualTo("test@test.com");
